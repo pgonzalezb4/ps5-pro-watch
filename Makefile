@@ -26,7 +26,7 @@ stealth-check:
 	  | grep -q . && echo "⚠️  a Chromium window is on-screen" || echo "✅ no on-screen Chromium window"
 
 # ---- GitHub Actions (cloud) ----
-REPO=pablo-gonzalez-rvs/ps5-pro-watch
+REPO=pgonzalezb4/ps5-pro-watch
 
 ci-secrets:   ## push every non-empty var from .env to GitHub Actions secrets
 	@grep -E '^[A-Z_]+=.+' .env | grep -vE '^\s*#' \
