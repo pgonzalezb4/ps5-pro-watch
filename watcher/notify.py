@@ -108,6 +108,27 @@ def format_alert(alerts: list[Result], rate: float) -> str:
     return "\n".join(out)
 
 
+def format_digest_compact(results: list[Result], rate: float) -> str:
+    """The nothing-to-report digest: 3 lines, not a 55-row table.
+
+    A daily 'still sold out' message is only worth sending if it can be read at
+    a glance, so this keeps just the headline and the best price per country.
+    """
+    tracked = [r for r in results if r.status in (Stock.IN, Stock.OUT)]
+    best = []
+    for cc, sym in (("CA", "🇨🇦"), ("US", "🇺🇸")):
+        priced = [r for r in results if r.target.country == cc and r.price
+                  and r.status is Stock.OUT]
+        if priced:
+            b = min(priced, key=lambda r: r.price)
+            best.append(f"{sym} {_esc(b.target.retailer)} ${b.price:,.0f}")
+    line2 = " · ".join(best) if best else "no prices readable this run"
+    return ("\u26aa <b>PS5 Pro \u2014 still sold out</b>\n"
+            f"{line2}\n"
+            f"<i>{len(results)} retailers checked, {len(tracked)} readable \u00b7 "
+            f"you'll get a \U0001F6A8 the moment one goes buyable</i>")
+
+
 def format_digest(results: list[Result], rate: float, elapsed: float,
                   geo_note: str = "") -> str:
     order = {Stock.IN: 0, Stock.OUT: 1, Stock.UNKNOWN: 2, Stock.ABSENT: 3,

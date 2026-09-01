@@ -127,9 +127,17 @@ async def cmd_digest(args):
     st = state.load()
     state.diff(results, st, cooldown_min=args.cooldown)
     state.save(st)
+    found = [r for r in results if r.status is Stock.IN]
     async with Fetcher() as f:
-        await notify.send(f, notify.format_digest(results, rate, elapsed, cfg.get("_geo","")),
-                          silent=not any(r.status is Stock.IN for r in results))
+        if found:
+            # Something is buyable -> full detail, with a normal notification.
+            await notify.send(f, notify.format_digest(results, rate, elapsed,
+                                                      cfg.get("_geo", "")),
+                              preview=True)
+        else:
+            # Nothing to act on -> 3 lines, delivered silently.
+            await notify.send(f, notify.format_digest_compact(results, rate),
+                              silent=True)
     _summary(results, elapsed)
     return 0
 
