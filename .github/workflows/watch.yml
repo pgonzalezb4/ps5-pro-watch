@@ -2,8 +2,11 @@ name: ps5-pro-watch
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # restock scan
-    - cron: "0 13 * * *"     # 09:00 America/Toronto daily digest
+    # Offset off :00 deliberately -- GitHub's scheduler is busiest at the top of
+    # the hour, where scheduled runs are commonly delayed 5-30 min or dropped.
+    # Odd offsets like :07 land in much quieter queue windows.
+    - cron: "7,17,27,37,47,57 * * * *"   # restock scan, every 10 min
+    - cron: "7 13 * * *"                 # 09:07 America/Toronto daily digest
   workflow_dispatch:
     inputs:
       mode:
@@ -62,7 +65,7 @@ jobs:
         run: |
           mkdir -p state
           MODE="scan"
-          if [ "${{ github.event.schedule }}" = "0 13 * * *" ]; then MODE="digest"; fi
+          if [ "${{ github.event.schedule }}" = "7 13 * * *" ]; then MODE="digest"; fi
           if [ -n "${{ inputs.mode }}" ]; then MODE="${{ inputs.mode }}"; fi
           echo "running: $MODE (headed under Xvfb)"
           xvfb-run -a --server-args="-screen 0 1920x1080x24 -ac +extension GLX" \
