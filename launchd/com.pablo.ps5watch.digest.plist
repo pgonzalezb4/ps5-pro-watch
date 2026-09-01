@@ -3,10 +3,10 @@
 <plist version="1.0"><dict>
   <key>Label</key><string>com.pablo.ps5watch.digest</string>
   <key>ProgramArguments</key><array>
-    <string>/Users/pablogonzalez/ps5-pro-watch/.venv/bin/python</string>
+    <string>__HOME__/ps5-pro-watch/.venv/bin/python</string>
     <string>-m</string><string>watcher</string><string>digest</string><string>--quiet</string>
   </array>
-  <key>WorkingDirectory</key><string>/Users/pablogonzalez/ps5-pro-watch</string>
+  <key>WorkingDirectory</key><string>__HOME__/ps5-pro-watch</string>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
   <key>RunAtLoad</key><false/>
   <key>StandardOutPath</key><string>/tmp/ps5watch.digest.log</string>

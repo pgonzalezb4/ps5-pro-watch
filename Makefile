@@ -10,7 +10,10 @@ chat-id:   ; $(VENV)/python -m watcher find-chat-id
 ca:        ; $(VENV)/python -m watcher scan --only CA
 us:        ; $(VENV)/python -m watcher scan --only US
 schedule:
-	cp launchd/*.plist ~/Library/LaunchAgents/
+	@mkdir -p ~/Library/LaunchAgents
+	@for f in launchd/*.plist; do \
+	   sed "s|__HOME__|$$HOME|g" "$$f" > ~/Library/LaunchAgents/$$(basename $$f); \
+	 done
 	launchctl unload ~/Library/LaunchAgents/com.pablo.ps5watch.scan.plist 2>/dev/null || true
 	launchctl unload ~/Library/LaunchAgents/com.pablo.ps5watch.digest.plist 2>/dev/null || true
 	launchctl load  ~/Library/LaunchAgents/com.pablo.ps5watch.scan.plist
