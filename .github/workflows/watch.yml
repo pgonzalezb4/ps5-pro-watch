@@ -53,8 +53,18 @@ jobs:
       # screen at all -- not because the browser is hiding.
       - name: Scan
         env:
+          # Every recipient must be mapped explicitly -- Actions does NOT
+          # auto-expose secrets to the job, so a secret that exists but is not
+          # listed here is silently ignored and that person gets nothing.
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_LABEL: ${{ secrets.TELEGRAM_LABEL }}
+          TELEGRAM_BOT_TOKEN_2: ${{ secrets.TELEGRAM_BOT_TOKEN_2 }}
+          TELEGRAM_CHAT_ID_2: ${{ secrets.TELEGRAM_CHAT_ID_2 }}
+          TELEGRAM_LABEL_2: ${{ secrets.TELEGRAM_LABEL_2 }}
+          TELEGRAM_BOT_TOKEN_3: ${{ secrets.TELEGRAM_BOT_TOKEN_3 }}
+          TELEGRAM_CHAT_ID_3: ${{ secrets.TELEGRAM_CHAT_ID_3 }}
+          TELEGRAM_LABEL_3: ${{ secrets.TELEGRAM_LABEL_3 }}
           BESTBUY_API_KEY: ${{ secrets.BESTBUY_API_KEY }}
           UNBLOCKER: ${{ secrets.UNBLOCKER }}
           UNBLOCKER_KEY: ${{ secrets.UNBLOCKER_KEY }}

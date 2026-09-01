@@ -31,6 +31,15 @@ def recipients() -> list[tuple[str, str, str]]:
             label = (os.environ.get(f"TELEGRAM_LABEL{suffix}") or "").strip() \
                 or f"bot{tok.split(':')[0]}"
             out.append((tok, chat, label))
+    # Loud warning for a half-configured recipient: this exact case (token set
+    # in CI but chat id not mapped through) silently dropped a person's alerts.
+    for suffix in [""] + [f"_{i}" for i in range(2, 11)]:
+        tok = (os.environ.get(f"TELEGRAM_BOT_TOKEN{suffix}") or "").strip()
+        chat = (os.environ.get(f"TELEGRAM_CHAT_ID{suffix}") or "").strip()
+        if bool(tok) != bool(chat):
+            missing = "TELEGRAM_CHAT_ID" if tok else "TELEGRAM_BOT_TOKEN"
+            print(f"[notify] WARNING: recipient{suffix or ' 1'} is half-configured "
+                  f"-- {missing}{suffix} is missing, so they will NOT be notified")
     return out
 
 
