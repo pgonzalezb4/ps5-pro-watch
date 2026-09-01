@@ -24,3 +24,31 @@ stealth-check:
 	@$(VENV)/python -m watcher scan --only Walmart
 	@osascript -e 'tell application "System Events" to get name of every window of (every process whose name contains "Chromium")' 2>/dev/null \
 	  | grep -q . && echo "⚠️  a Chromium window is on-screen" || echo "✅ no on-screen Chromium window"
+
+# ---- GitHub Actions (cloud) ----
+REPO=pablo-gonzalez-rvs/ps5-pro-watch
+
+ci-secrets:   ## push every non-empty var from .env to GitHub Actions secrets
+	@grep -E '^[A-Z_]+=.+' .env | grep -vE '^\s*#' \
+	  | grep -vE '=(\s*)$$' \
+	  | grep -vE 'AAExampleTokenFromBotFather' \
+	  | while IFS='=' read -r k v; do \
+	      printf '%s' "$$v" | gh secret set "$$k" --repo $(REPO) >/dev/null \
+	        && echo "  set $$k"; \
+	    done
+	@echo "secrets now on $(REPO):"; gh secret list --repo $(REPO)
+
+ci-run:       ## trigger a digest run in the cloud right now
+	gh workflow run watch.yml --repo $(REPO) -f mode=digest
+	@sleep 6 && gh run list --repo $(REPO) --limit 3
+
+ci-watch:     ## follow the latest cloud run
+	gh run watch --repo $(REPO) $$(gh run list --repo $(REPO) --limit 1 --json databaseId -q '.[0].databaseId')
+
+ci-log:       ## show the last run's scan output
+	gh run view --repo $(REPO) --log $$(gh run list --repo $(REPO) --limit 1 --json databaseId -q '.[0].databaseId') 2>/dev/null | grep -E "^\s*[🟢⚪🟡⚫🚫🔴]|targets in|IN STOCK" | head -70
+
+ci-off:       ## pause the cloud schedule
+	gh workflow disable watch.yml --repo $(REPO)
+ci-on:        ## resume the cloud schedule
+	gh workflow enable watch.yml --repo $(REPO)
