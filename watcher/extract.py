@@ -171,6 +171,23 @@ PRICE_BAND = {"CA": (850.0, 1900.0), "US": (600.0, 1500.0)}
 _CARD_PRICE = re.compile(r"\$\s?([0-9][0-9,]{2,6}(?:\.[0-9]{2})?)")
 
 
+def is_clean_title(t: str) -> bool:
+    """Reject description prose masquerading as a product name.
+
+    State blobs put marketing copy in fields called "name"/"description", and a
+    paragraph mentioning the console read as a live product -- one such match
+    produced a false IN_STOCK alert for Walmart US ("<li>Keep your favorite...").
+    A real product title has no markup and is short.
+    """
+    if not isinstance(t, str) or not (3 <= len(t) <= 120):
+        return False
+    if "<" in t or ">" in t or "&lt;" in t:
+        return False
+    if t.count(".") > 2 or "\n" in t:
+        return False
+    return True
+
+
 def is_console_title(title: str) -> bool:
     """True only for an actual PS5 Pro console listing."""
     if not title or not CONSOLE_RE.search(title):
@@ -296,7 +313,7 @@ def classify_console(html: str, country: str) -> tuple[Stock, float | None, str]
         # Distinguish "page never rendered" from "retailer genuinely has none".
         body = visible_text(html, 40000)
         # An explicit "0 results" is a confirmed absence, whatever the body size.
-        if says_no_results(body) or says_no_results(html):
+        if says_no_results(body):
             return Stock.ABSENT, None, "search returned no results"
         if len(body) < 1500:
             return Stock.UNKNOWN, None, f"page not rendered ({len(body)}b)"
@@ -432,7 +449,9 @@ def embedded_state_offers(html: str, country: str, max_nodes: int = 60000) -> li
             stack.extend(v for v in node.values() if isinstance(v, (dict, list)))
             lower = {str(k).lower(): v for k, v in node.items()}
             name = next((lower[k] for k in _NAME_KEYS
-                         if isinstance(lower.get(k), str) and is_console_title(lower[k])), None)
+                         if isinstance(lower.get(k), str)
+                         and is_clean_title(lower[k])
+                         and is_console_title(lower[k])), None)
             if not name:
                 continue
             status = None
@@ -469,8 +488,10 @@ NO_RESULTS_RE = re.compile(
     r"aucun\s+r[eé]sultat|0\s+produits?)", re.I)
 
 
-def says_no_results(html_or_text: str) -> bool:
-    return bool(NO_RESULTS_RE.search(html_or_text[:200000]))
+def says_no_results(text: str) -> bool:
+    """Only trust this on VISIBLE text, and only near the top of the page where
+    a real result count appears -- deep matches are usually unrelated boilerplate."""
+    return bool(NO_RESULTS_RE.search(text[:4000]))
 
 
 _ECHO_CTX = re.compile(
