@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.pablo.ps5watch.scan</string>
+  <key>ProgramArguments</key><array>
+    <string>/Users/pablogonzalez/ps5-pro-watch/.venv/bin/python</string>
+    <string>-m</string><string>watcher</string><string>scan</string><string>--quiet</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/pablogonzalez/ps5-pro-watch</string>
+  <key>StartInterval</key><integer>600</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/tmp/ps5watch.scan.log</string>
+  <key>StandardErrorPath</key><string>/tmp/ps5watch.scan.err</string>
+</dict></plist>

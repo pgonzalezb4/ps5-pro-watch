@@ -1,0 +1,260 @@
+# ps5-pro-watch — retailer registry
+# tier/adapter: bestbuy_ca | bestbuy_us | target_us | amazon | sfcc |
+#               playstation_direct | json | http | browser
+# An `http` target that comes back BLOCKED/UNKNOWN auto-escalates to the browser tier.
+
+settings:
+  product_match: ["playstation 5 pro", "ps5 pro"]
+  exclude_match: ["cover", "stand", "fan", "bracket", "disc drive", "controller",
+                  "charger", "skin", "case", "refurbished", "dualsense", "headset",
+                  "faceplate", "cooling", "mount", "warranty", "protection"]
+  postal_ca: "M5V3L9"
+  target_store_id: "3991"
+  browser_concurrency: 3
+  stealth_concurrency: 2
+  stealth_headless: false     # headless FAILS every hard target -- keep false
+  stealth_offscreen: true     # park the window at -3000,-3000: invisible, still stealthy
+  stealth_wait_ms: 6000
+  tls_warm: true
+  browser_wait_ms: 4500
+  resolve_pdp: true
+  pdp_limit: 2
+  http_concurrency: 8
+  auto_escalate: true
+  headless: true
+  price_alert_cad: 1200        # flag US deals cheaper than this once converted
+  quiet_statuses: ["OUT_OF_STOCK"]   # excluded from instant alerts, kept in digest
+
+targets:
+  # ======================= CANADA =======================
+  - retailer: Best Buy Canada
+    country: CA
+    adapter: bestbuy_ca
+    sku: "19492009"
+    url: https://www.bestbuy.ca/en-ca/product/19492009
+  - retailer: Best Buy Canada (alt SKU)
+    country: CA
+    adapter: bestbuy_ca
+    sku: "18477929"
+    url: https://www.bestbuy.ca/en-ca/product/18477929
+  - retailer: Amazon.ca
+    country: CA
+    adapter: amazon
+    url: https://www.amazon.ca/s?k=playstation+5+pro+console&rh=p_n_availability%3A-1
+  - retailer: Walmart Canada
+    country: CA
+    adapter: stealth
+    url: https://www.walmart.ca/en/search?q=playstation%205%20pro%20console
+  - retailer: Costco Canada
+    country: CA
+    adapter: tls
+    url: https://www.costco.ca/s?dept=All&keyword=playstation+5+pro
+  - retailer: EB Games Canada
+    country: CA
+    adapter: tls
+    url: https://www.ebgames.ca/search?q=playstation+5+pro+console
+  - retailer: The Source (Best Buy Express)
+    country: CA
+    adapter: browser
+    url: https://www.bestbuy.ca/en-ca/search?search=playstation+5+pro
+  - retailer: Staples Canada
+    country: CA
+    adapter: tls
+    url: https://www.staples.ca/search?query=playstation+5+pro
+  - retailer: Toys R Us Canada
+    country: CA
+    adapter: tls
+    url: https://www.toysrus.ca/en/search?q=playstation+5+pro
+  - retailer: London Drugs
+    country: CA
+    adapter: tls
+    url: https://www.londondrugs.com/search?q=playstation+5+pro
+  - retailer: Visions Electronics
+    country: CA
+    adapter: tls
+    url: https://www.visions.ca/catalogsearch/result/?q=playstation+5+pro
+  - retailer: Canada Computers
+    country: CA
+    adapter: stealth
+    url: https://www.canadacomputers.com/en/search?s=playstation+5+pro
+  - retailer: Memory Express
+    country: CA
+    adapter: tls
+    url: https://www.memoryexpress.com/Search/Products?Search=playstation+5+pro
+  - retailer: Newegg Canada
+    country: CA
+    adapter: tls
+    url: https://www.newegg.ca/p/pl?d=playstation+5+pro+console
+  - retailer: Mike's Computer Shop
+    country: CA
+    adapter: tls
+    url: https://www.mikescomputershop.com/search?q=playstation+5+pro
+  - retailer: PC-Canada
+    country: CA
+    adapter: tls
+    url: https://www.pc-canada.com/search?q=playstation+5+pro
+  - retailer: Vuugo
+    country: CA
+    adapter: tls
+    url: https://www.vuugo.com/search?q=playstation+5+pro
+  - retailer: Real Canadian Superstore
+    country: CA
+    adapter: tls
+    url: https://www.realcanadiansuperstore.ca/search?search-bar=playstation%205%20pro
+  - retailer: Sonic Boom / GameStop CA
+    country: CA
+    adapter: tls
+    url: https://www.gamestop.ca/search?q=playstation+5+pro
+  - retailer: Costco Canada (online only)
+    country: CA
+    adapter: browser
+    url: https://www.costco.ca/electronics-computers/video-games.html
+
+  # ========================= USA ========================
+  - retailer: Best Buy US
+    country: US
+    adapter: bestbuy_us
+    sku: "6566491"
+    url: https://www.bestbuy.com/site/searchpage.jsp?st=playstation+5+pro+console
+  - retailer: Target
+    country: US
+    adapter: target_us
+    sku: "93796999"
+    url: https://www.target.com/s?searchTerm=playstation+5+pro+console
+  - retailer: Amazon.com
+    country: US
+    adapter: amazon
+    url: https://www.amazon.com/s?k=playstation+5+pro+console
+  - retailer: Walmart US
+    country: US
+    adapter: stealth
+    url: https://www.walmart.com/search?q=playstation%205%20pro%20console
+  - retailer: PlayStation Direct
+    country: US
+    adapter: playstation_direct
+    url: https://direct.playstation.com/en-us/consoles
+  - retailer: GameStop US
+    country: US
+    adapter: stealth
+    url: https://www.gamestop.com/search/?q=playstation+5+pro+console
+  - retailer: Costco US
+    country: US
+    adapter: tls
+    url: https://www.costco.com/CatalogSearch?keyword=playstation+5+pro
+  - retailer: Sam's Club
+    country: US
+    adapter: tls
+    url: https://www.samsclub.com/s/playstation%205%20pro
+  - retailer: B&H Photo
+    country: US
+    adapter: tls
+    url: https://www.bhphotovideo.com/c/search?q=playstation+5+pro+console
+  - retailer: Newegg US
+    country: US
+    adapter: tls
+    url: https://www.newegg.com/p/pl?d=playstation+5+pro+console
+  - retailer: Antonline
+    country: US
+    adapter: tls
+    url: https://www.antonline.com/search?keywords=playstation%205%20pro
+  - retailer: Micro Center
+    country: US
+    adapter: tls
+    url: https://www.microcenter.com/search/search_results.aspx?Ntt=playstation+5+pro
+  - retailer: Adorama
+    country: US
+    adapter: stealth
+    url: https://www.adorama.com/l/?searchinfo=playstation%205%20pro
+  - retailer: Woot
+    country: US
+    adapter: tls
+    url: https://www.woot.com/search?q=playstation%205%20pro
+  - retailer: Kohl's
+    country: US
+    adapter: tls
+    url: https://www.kohls.com/search.jsp?search=playstation%205%20pro
+  - retailer: Dell
+    country: US
+    adapter: tls
+    url: https://www.dell.com/en-us/search/playstation%205%20pro
+  - retailer: Target (PDP direct)
+    country: US
+    adapter: browser
+    url: https://www.target.com/p/playstation-5-pro-console/-/A-93796999
+  - retailer: BJ's Wholesale
+    country: US
+    adapter: tls
+    url: https://www.bjs.com/search/playstation%205%20pro
+  - retailer: QVC
+    country: US
+    adapter: tls
+    url: https://www.qvc.com/catalog/search.html?keyword=playstation%205%20pro
+  - retailer: Verizon
+    country: US
+    adapter: tls
+    url: https://www.verizon.com/search/?q=playstation%205%20pro
+
+  # ---- added: free tiers, no paid unblocker needed ----
+  - retailer: Video Games Plus
+    country: CA
+    adapter: tls
+    url: https://www.vgp.ca/search?q=playstation+5+pro
+  - retailer: eBay Canada (BIN)
+    country: CA
+    adapter: stealth
+    url: https://www.ebay.ca/sch/i.html?_nkw=playstation+5+pro+console&LH_BIN=1&_sop=15
+  - retailer: Bureau en Gros
+    country: CA
+    adapter: tls
+    url: https://www.bureauengros.com/recherche?query=playstation+5+pro
+  - retailer: Simply Computing
+    country: CA
+    adapter: tls
+    url: https://www.simply.ca/search?q=playstation+5+pro
+  - retailer: Best Buy CA (marketplace)
+    country: CA
+    adapter: tls
+    url: https://www.bestbuy.ca/en-ca/search?search=playstation+5+pro+console
+  - retailer: Amazon.ca (warehouse)
+    country: CA
+    adapter: amazon
+    url: https://www.amazon.ca/s?k=playstation+5+pro+console&emi=A3DWYIK6Y9EEQB
+  - retailer: The Source CA
+    country: CA
+    adapter: tls
+    url: https://www.thesource.ca/en-ca/search?q=playstation+5+pro
+  - retailer: eBay US (BIN)
+    country: US
+    adapter: stealth
+    url: https://www.ebay.com/sch/i.html?_nkw=playstation+5+pro+console&LH_BIN=1&_sop=15
+  - retailer: Rakuten US
+    country: US
+    adapter: tls
+    url: https://www.rakuten.com/search/playstation+5+pro
+  - retailer: HSN
+    country: US
+    adapter: tls
+    url: https://www.hsn.com/search?query=playstation%205%20pro
+  - retailer: Walmart US (marketplace)
+    country: US
+    adapter: stealth
+    url: https://www.walmart.com/search?q=playstation+5+pro+console&facet=retailer_type%3AMarketplace
+  - retailer: GameStop US (PDP)
+    country: US
+    adapter: stealth
+    url: https://www.gamestop.com/consoles-hardware/playstation-5/consoles
+  - retailer: Target (RedSky API)
+    country: US
+    adapter: target_us
+    sku: "93796999"
+    url: https://www.target.com/p/-/A-93796999
+
+  # ---- community restock leads (free, catches stores we don't scan) ----
+  - retailer: "\U0001F4E1 Slickdeals feed"
+    country: US
+    adapter: feed
+    url: https://slickdeals.net/newsearch.php?mode=frontpage&searcharea=deals&searchin=first&rss=1
+  - retailer: "\U0001F4E1 RedFlagDeals feed"
+    country: CA
+    adapter: feed
+    url: https://forums.redflagdeals.com/feed/forum/hot-deals-f9

@@ -1,0 +1,8 @@
+httpx[http2]>=0.27
+curl_cffi>=0.16          # TLS/JA3 impersonation — unblocks ~9 retailers, free
+patchright>=1.44         # de-leaked Playwright fork — unblocks Walmart/GameStop, free
+brotli>=1.1
+beautifulsoup4>=4.12
+lxml>=5.0
+pyyaml>=6.0
+playwright>=1.44

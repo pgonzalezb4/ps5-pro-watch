@@ -1,0 +1,76 @@
+name: ps5-pro-watch
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # restock scan
+    - cron: "0 13 * * *"     # 09:00 America/Toronto daily digest
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "scan or digest"
+        default: digest
+        type: choice
+        options: [scan, digest]
+
+# never let two scans overlap; a slow run just yields to the next one
+concurrency:
+  group: ps5-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps + browsers
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+          python -m patchright install chromium
+          sudo apt-get install -y xvfb
+
+      # Alert state persists between runs so you only get pinged on OUT->IN
+      # transitions. A cache miss just means one extra alert, never a missed one.
+      - name: Restore alert state
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: ps5watch-state-${{ github.run_id }}
+          restore-keys: ps5watch-state-
+
+      # HEADLESS IS DETECTED by Walmart/GameStop/eBay, so the browser runs fully
+      # headed on a virtual X display. Invisible because it's a cloud VM with no
+      # screen at all -- not because the browser is hiding.
+      - name: Scan
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BESTBUY_API_KEY: ${{ secrets.BESTBUY_API_KEY }}
+          UNBLOCKER: ${{ secrets.UNBLOCKER }}
+          UNBLOCKER_KEY: ${{ secrets.UNBLOCKER_KEY }}
+          PS5WATCH_STATE: state/state.json
+          PS5WATCH_STEALTH_HEADLESS: "false"
+          PS5WATCH_STEALTH_OFFSCREEN: "false"
+          PS5WATCH_STEALTH_CONCURRENCY: "2"
+        run: |
+          mkdir -p state
+          MODE="scan"
+          if [ "${{ github.event.schedule }}" = "0 13 * * *" ]; then MODE="digest"; fi
+          if [ -n "${{ inputs.mode }}" ]; then MODE="${{ inputs.mode }}"; fi
+          echo "running: $MODE (headed under Xvfb)"
+          xvfb-run -a --server-args="-screen 0 1920x1080x24 -ac +extension GLX" \
+            python -m watcher "$MODE"
+
+      - name: Save alert state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: ps5watch-state-${{ github.run_id }}
