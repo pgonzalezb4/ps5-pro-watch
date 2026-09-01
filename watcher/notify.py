@@ -16,30 +16,52 @@ def _esc(s) -> str:
     return _html.escape(str(s), quote=False)
 
 
+def recipients() -> list[tuple[str, str, str]]:
+    """Every configured (token, chat_id, label).
+
+    Supports any number of people: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID for the
+    first, then _2, _3, ... for the rest. Separate tokens mean each person can
+    run their own bot and revoke it independently.
+    """
+    out = []
+    for suffix in [""] + [f"_{i}" for i in range(2, 11)]:
+        tok = (os.environ.get(f"TELEGRAM_BOT_TOKEN{suffix}") or "").strip()
+        chat = (os.environ.get(f"TELEGRAM_CHAT_ID{suffix}") or "").strip()
+        if tok and chat and "Example" not in tok:
+            label = (os.environ.get(f"TELEGRAM_LABEL{suffix}") or "").strip() \
+                or f"bot{tok.split(':')[0]}"
+            out.append((tok, chat, label))
+    return out
+
+
 async def send(fetcher, text: str, *, silent: bool = False,
                preview: bool = False) -> bool:
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat = os.environ.get("TELEGRAM_CHAT_ID")
-    if not token or not chat:
-        print("[notify] TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set; printing:\n")
+    """Fan out to every recipient. One person's failure never blocks another's."""
+    people = recipients()
+    if not people:
+        print("[notify] no TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID pairs set; printing:\n")
         print(text)
         return False
-    ok = True
-    for chunk in _chunks(text):
-        try:
-            r = await fetcher.client.post(
-                API.format(token=token, method="sendMessage"),
-                json={"chat_id": chat, "text": chunk, "parse_mode": "HTML",
-                      "disable_web_page_preview": not preview,
-                      "disable_notification": silent},
-                timeout=25)
-            if r.status_code != 200:
-                print(f"[notify] telegram {r.status_code}: {r.text[:200]}")
+    all_ok = True
+    for token, chat, label in people:
+        ok = True
+        for chunk in _chunks(text):
+            try:
+                r = await fetcher.client.post(
+                    API.format(token=token, method="sendMessage"),
+                    json={"chat_id": chat, "text": chunk, "parse_mode": "HTML",
+                          "disable_web_page_preview": not preview,
+                          "disable_notification": silent},
+                    timeout=25)
+                if r.status_code != 200:
+                    print(f"[notify] {label}: telegram {r.status_code}: {r.text[:160]}")
+                    ok = False
+            except Exception as e:
+                print(f"[notify] {label}: {type(e).__name__}: {e}")
                 ok = False
-        except Exception as e:
-            print(f"[notify] {type(e).__name__}: {e}")
-            ok = False
-    return ok
+        print(f"[notify] {label} -> {'sent' if ok else 'FAILED'}")
+        all_ok = all_ok and ok
+    return all_ok
 
 
 def _chunks(text: str):
@@ -119,14 +141,31 @@ def format_digest(results: list[Result], rate: float, elapsed: float,
 
 
 async def resolve_chat_id(fetcher) -> str | None:
-    """Helper: message your bot once, then run `--find-chat-id`."""
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not token:
-        return None
-    r = await fetcher.client.get(API.format(token=token, method="getUpdates"), timeout=20)
-    for u in reversed(r.json().get("result", [])):
-        msg = u.get("message") or u.get("channel_post") or {}
-        cid = (msg.get("chat") or {}).get("id")
-        if cid:
-            return str(cid)
-    return None
+    """Print the chat id for every configured bot. Each person must message
+    their bot first -- Telegram forbids a bot from opening a conversation."""
+    found = None
+    for suffix in [""] + [f"_{i}" for i in range(2, 11)]:
+        token = (os.environ.get(f"TELEGRAM_BOT_TOKEN{suffix}") or "").strip()
+        if not token or "Example" in token:
+            continue
+        tag = token.split(":")[0]
+        try:
+            me = await fetcher.client.get(API.format(token=token, method="getMe"), timeout=20)
+            uname = (me.json().get("result") or {}).get("username", "?")
+            r = await fetcher.client.get(API.format(token=token, method="getUpdates"), timeout=20)
+            seen = {}
+            for u in r.json().get("result", []):
+                msg = u.get("message") or u.get("channel_post") or {}
+                ch = msg.get("chat") or {}
+                if ch.get("id"):
+                    seen[ch["id"]] = ch.get("username") or ch.get("first_name") or "?"
+            if seen:
+                for cid, who in seen.items():
+                    print(f"  @{uname} (bot {tag}) -> TELEGRAM_CHAT_ID{suffix}={cid}   [{who}]")
+                    found = found or str(cid)
+            else:
+                print(f"  @{uname} (bot {tag}) -> no messages yet; "
+                      f"open the bot in Telegram and press Start")
+        except Exception as e:
+            print(f"  bot {tag}: {type(e).__name__}: {e}")
+    return found

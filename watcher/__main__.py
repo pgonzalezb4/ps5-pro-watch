@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -42,9 +43,14 @@ def load_env():
         if p.exists():
             for line in p.read_text().splitlines():
                 line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                # Strip trailing "  # comment" -- only when preceded by
+                # whitespace, so a value containing '#' survives intact.
+                v = re.sub(r"\s+#.*$", "", v).strip().strip('"').strip("'")
+                if v:
+                    os.environ.setdefault(k.strip(), v)
 
 
 async def scan_all(cfg: dict, targets: list[Target], verbose: bool = True) -> tuple[list[Result], float]:

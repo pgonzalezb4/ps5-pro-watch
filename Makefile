@@ -32,7 +32,7 @@ stealth-check:
 REPO=pgonzalezb4/ps5-pro-watch
 
 ci-secrets:   ## push every non-empty var from .env to GitHub Actions secrets
-	@grep -E '^[A-Z_]+=.+' .env | grep -vE '^\s*#' \
+	@grep -E '^[A-Z0-9_]+=.+' .env | grep -vE '^\s*#' \
 	  | grep -vE '=(\s*)$$' \
 	  | grep -vE 'AAExampleTokenFromBotFather' \
 	  | while IFS='=' read -r k v; do \

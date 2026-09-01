@@ -34,11 +34,16 @@ PS5 Pro restocks sell out in **2–10 minutes**. A once-a-day scan reports
 
 ## Setup
 
+Multiple people can be notified. Each gets their own bot token (so anyone can
+revoke theirs without breaking the others): blank suffix for the first, then
+`_2`, `_3`, up to 10. A send failure for one person never blocks the others.
+
 ```bash
 make install
-cp .env.example .env        # paste your TELEGRAM_BOT_TOKEN
-# message your bot once in Telegram, then:
-make chat-id                # prints TELEGRAM_CHAT_ID -> paste into .env
+cp .env.example .env        # paste TELEGRAM_BOT_TOKEN (+ _2 for a second person)
+# EACH person must open their bot in Telegram and press Start first --
+# a bot cannot open a conversation, so there's no chat id until they do.
+make chat-id                # prints a TELEGRAM_CHAT_ID line per bot
 make test                   # confirms delivery
 make scan                   # live run
 make schedule               # launchd: scan/10min + digest daily
