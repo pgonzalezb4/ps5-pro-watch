@@ -114,7 +114,11 @@ def format_digest_compact(results: list[Result], rate: float) -> str:
     A daily 'still sold out' message is only worth sending if it can be read at
     a glance, so this keeps just the headline and the best price per country.
     """
-    tracked = [r for r in results if r.status in (Stock.IN, Stock.OUT)]
+    # "readable" = we got a definitive answer, which includes confirming a
+    # retailer simply doesn't carry it. Only UNKNOWN/BLOCKED/ERROR are failures.
+    tracked = [r for r in results
+               if r.status in (Stock.IN, Stock.OUT, Stock.ABSENT)]
+    unreadable = len(results) - len(tracked)
     best = []
     for cc, sym in (("CA", "🇨🇦"), ("US", "🇺🇸")):
         priced = [r for r in results if r.target.country == cc and r.price
@@ -125,8 +129,9 @@ def format_digest_compact(results: list[Result], rate: float) -> str:
     line2 = " · ".join(best) if best else "no prices readable this run"
     return ("\u26aa <b>PS5 Pro \u2014 still sold out</b>\n"
             f"{line2}\n"
-            f"<i>{len(results)} retailers checked, {len(tracked)} readable \u00b7 "
-            f"you'll get a \U0001F6A8 the moment one goes buyable</i>")
+            f"<i>{len(results)} retailers \u00b7 {len(tracked)} confirmed, "
+            f"{unreadable} unreachable \u00b7 "
+            f"\U0001F6A8 the moment one goes buyable</i>")
 
 
 def format_digest(results: list[Result], rate: float, elapsed: float,
