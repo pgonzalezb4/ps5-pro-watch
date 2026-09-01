@@ -277,18 +277,33 @@ def console_offers_dom(html: str, country: str, max_cards: int = 40) -> list[dic
 
 
 def classify_console(html: str, country: str) -> tuple[Stock, float | None, str]:
-    """Authoritative verdict for a page. IN only with a matched console card."""
+    """Authoritative verdict for a page. IN only with a matched console card.
+
+    Signal priority: schema.org markup, then embedded state JSON, then DOM
+    cards. State JSON outranks the DOM because JS-shell pages have no readable
+    DOM at all, and an explicit "purchasable": false beats any text heuristic.
+    """
     offers = console_offers_jsonld(html, country)
     src = "jsonld"
     if not offers:
-        offers = console_offers_dom(html, country)
+        offers = embedded_state_offers(html, country)
+        src = "state"
+    if not offers:
+        offers = [o for o in console_offers_dom(html, country)
+                  if not is_query_echo(o["title"])]
         src = "dom"
     if not offers:
         # Distinguish "page never rendered" from "retailer genuinely has none".
         body = visible_text(html, 40000)
+        # An explicit "0 results" is a confirmed absence, whatever the body size.
+        if says_no_results(body) or says_no_results(html):
+            return Stock.ABSENT, None, "search returned no results"
         if len(body) < 1500:
             return Stock.UNKNOWN, None, f"page not rendered ({len(body)}b)"
-        if CONSOLE_RE.search(body):
+        # A page that only says "showing results for playstation 5 pro" is
+        # echoing the query back, not listing a console. Strip those before
+        # deciding the console was "named" here.
+        if CONSOLE_RE.search(strip_query_echo(body)):
             return Stock.UNKNOWN, None, "console named, no parseable card"
         return Stock.ABSENT, None, "no PS5 Pro console listed"
 
@@ -334,3 +349,149 @@ def price_flag(price: float | None, country: str) -> str:
     if price > msrp * 1.35:
         return f" \u26a0\ufe0f {price/msrp:.1f}x MSRP (marketplace/scalper?)"
     return ""
+
+
+# ==========================================================================
+# Embedded state JSON.
+#
+# Many storefronts render an empty shell and ship the catalogue in a JSON blob
+# (__INITIAL_STATE__, __NEXT_DATA__, Apollo cache). visible_text() sees ~0
+# bytes there, so DOM matching cannot work -- but the blob usually carries an
+# explicit availability flag. Best Buy CA's marketplace page is exactly this:
+# 90KB of HTML, zero visible text, and "purchasable": false sitting in state.
+# ==========================================================================
+
+_BLOB_PATTERNS = [
+    r'<script[^>]*id="__NEXT_DATA__"[^>]*>\s*(\{.*?\})\s*</script>',
+    r'window\.__INITIAL_STATE__\s*=\s*(\{.*?\})\s*;?\s*</script>',
+    r'window\.__PRELOADED_STATE__\s*=\s*(\{.*?\})\s*;?\s*</script>',
+    r'window\.__APOLLO_STATE__\s*=\s*(\{.*?\})\s*;?\s*</script>',
+]
+
+_NAME_KEYS = ("name", "title", "productname", "displayname", "itemname", "description")
+_AVAIL_KEYS = {
+    "purchasable": None, "instock": None, "isinstock": None, "isavailable": None,
+    "available": None, "availability": None, "availabilitystatus": None,
+    "stockstatus": None, "salestatus": None, "orderable": None, "buyable": None,
+    "addtocartenabled": None, "isbuyable": None, "outofstock": "invert",
+    "issoldout": "invert", "soldout": "invert",
+}
+_PRICE_KEYS = ("price", "saleprice", "currentprice", "finalprice", "regularprice", "listprice")
+
+_TRUE_WORDS = {"true", "instock", "in_stock", "available", "availableforsale",
+               "purchasable", "yes", "1", "orderable", "addtocart"}
+_FALSE_WORDS = {"false", "outofstock", "out_of_stock", "soldout", "sold_out",
+                "unavailable", "notavailable", "no", "0", "notify", "comingsoon"}
+
+
+def _blob_candidates(html: str):
+    for pat in _BLOB_PATTERNS:
+        for m in re.finditer(pat, html, re.S):
+            raw = m.group(1)
+            try:
+                yield json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+
+
+def _coerce_avail(key: str, val) -> Stock | None:
+    mode = _AVAIL_KEYS.get(key)
+    if isinstance(val, bool):
+        st = Stock.IN if val else Stock.OUT
+    elif isinstance(val, (int, float)) and not isinstance(val, bool):
+        st = Stock.IN if val else Stock.OUT
+    elif isinstance(val, str):
+        v = re.sub(r"[^a-z0-9]", "", val.lower())
+        if v in _TRUE_WORDS:
+            st = Stock.IN
+        elif v in _FALSE_WORDS:
+            st = Stock.OUT
+        else:
+            return None
+    else:
+        return None
+    if mode == "invert":
+        st = Stock.OUT if st is Stock.IN else Stock.IN
+    return st
+
+
+def embedded_state_offers(html: str, country: str, max_nodes: int = 60000) -> list[dict]:
+    """Find PS5 Pro console objects inside embedded state JSON."""
+    band = PRICE_BAND.get(country, PRICE_BAND["US"])
+    found, seen = [], 0
+    for blob in _blob_candidates(html):
+        stack = [blob]
+        while stack and seen < max_nodes:
+            node = stack.pop()
+            seen += 1
+            if isinstance(node, list):
+                stack.extend(x for x in node if isinstance(x, (dict, list)))
+                continue
+            if not isinstance(node, dict):
+                continue
+            stack.extend(v for v in node.values() if isinstance(v, (dict, list)))
+            lower = {str(k).lower(): v for k, v in node.items()}
+            name = next((lower[k] for k in _NAME_KEYS
+                         if isinstance(lower.get(k), str) and is_console_title(lower[k])), None)
+            if not name:
+                continue
+            status = None
+            for k, v in lower.items():
+                if k in _AVAIL_KEYS:
+                    status = _coerce_avail(k, v)
+                    if status is not None:
+                        break
+            price = None
+            for k in _PRICE_KEYS:
+                v = lower.get(k)
+                if isinstance(v, dict):
+                    v = v.get("value") or v.get("amount")
+                try:
+                    fv = float(str(v).replace("$", "").replace(",", ""))
+                except (TypeError, ValueError):
+                    continue
+                if band[0] <= fv <= band[1]:
+                    price = fv
+                    break
+            if status is not None:
+                found.append({"title": name[:90], "price": price,
+                              "status": status, "src": "state"})
+    return found
+
+
+# --- no-results detection --------------------------------------------------
+# A search page saying "0 items" is a *confirmed absence*, not an unreadable
+# page. Reporting it as UNKNOWN hides a real answer.
+NO_RESULTS_RE = re.compile(
+    r"(found\s+0\s+items|0\s+results|no\s+results\s+(?:were\s+)?found|"
+    r"did\s+not\s+match\s+any|we\s+couldn'?t\s+find|no\s+products?\s+(?:were\s+)?found|"
+    r"nothing\s+matched|no\s+matches\s+found|sorry,?\s+no\s+results|"
+    r"aucun\s+r[eé]sultat|0\s+produits?)", re.I)
+
+
+def says_no_results(html_or_text: str) -> bool:
+    return bool(NO_RESULTS_RE.search(html_or_text[:200000]))
+
+
+_ECHO_CTX = re.compile(
+    r"((?:showing|search|these are the)?\s*results?\s+for|you\s+searched\s+for|"
+    r"did\s+you\s+mean|search(?:ing)?\s+for|no\s+results?\s+for|"
+    r"showing\s+\d+\s*[-\u2013]\s*\d+\s+of|r[eé]sultats?\s+pour)\s*[:\"\u201c]?\s*"
+    r"['\"‘“]?\s*(?:sony\s+)?(?:playstation\s*5\s*pro|ps5\s*pro)"
+    r"['\"’”]?[^.,;]{0,24}", re.I)
+
+
+def strip_query_echo(text: str) -> str:
+    """Remove 'showing results for playstation 5 pro' style echoes."""
+    return _ECHO_CTX.sub(" ", text)
+
+
+def is_query_echo(title: str) -> bool:
+    """A 'card' whose title is just the search box contents or a result count."""
+    t = title.strip().strip('"').lower()
+    if re.match(r"^(we have found|showing|results? for|search results)", t):
+        return True
+    # bare query with no brand/model detail around it
+    return t in {"playstation 5 pro console", "playstation 5 pro", "ps5 pro",
+                 "ps5 pro console", "playstation 5 pro console\"", "sony playstation 5 pro"} \
+        and len(t) < 32

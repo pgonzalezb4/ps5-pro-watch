@@ -469,3 +469,54 @@ async def feed(t: Target, f: Fetcher, cfg) -> Result:
         return _r(t, Stock.ABSENT, note=f"no PS5 Pro posts ({len(items)} items)", t0=t0)
     except Exception as e:
         return _r(t, Stock.ERROR, note=f"{type(e).__name__}: {str(e)[:70]}", t0=t0)
+
+
+@adapter("bestbuy_ca_search")
+async def bestbuy_ca_search(t: Target, f: Fetcher, cfg) -> Result:
+    """Search Best Buy CA's API, then check availability for every console SKU.
+
+    Better than a fixed SKU list: if Best Buy lists a new PS5 Pro SKU (a bundle,
+    a re-list), this finds it the same hour instead of silently missing it.
+    """
+    t0 = time.monotonic()
+    try:
+        q = "playstation%205%20pro%20console"
+        r = await f.get(f"https://www.bestbuy.ca/api/v2/json/search?query={q}"
+                        "&page=1&pageSize=40&lang=en-CA",
+                        headers={"Accept": "application/json"}, referer=t.url)
+        if looks_blocked(r) or r.status_code >= 400:
+            return _r(t, Stock.BLOCKED, note=f"search api {r.status_code}", t0=t0)
+        skus = []
+        for p in r.json().get("products", []):
+            name = p.get("name") or ""
+            if extract.is_console_title(name):
+                skus.append((str(p.get("sku")), name, p.get("salePrice")))
+        if not skus:
+            return _r(t, Stock.ABSENT, note="no console SKUs in search", t0=t0)
+
+        avail = ("https://www.bestbuy.ca/ecomm-api/availability/products"
+                 "?accept=application%2Fvnd.bestbuy.simpleproduct.v1%2Bjson"
+                 f"&accept-language=en-CA&locations=&postalCode={cfg.get('postal_ca','M5V3L9')}"
+                 # the pipe separator MUST be percent-encoded: raw "|" -> 400,
+                 # "," -> 412 (the API validates against ^[A-Za-z0-9|]+$)
+                 f"&skus={'%7C'.join(s for s, _n, _p in skus)}")
+        a = await f.get(avail, headers={"Accept": "application/vnd.bestbuy.simpleproduct.v1+json"},
+                        referer=t.url)
+        nodes = {str(n.get("sku")): n for n in (a.json().get("availabilities") or [])}
+        best_status, best_price, hits = Stock.OUT, None, []
+        for sku, name, price in skus:
+            n = nodes.get(sku) or {}
+            purch = bool((n.get("shipping") or {}).get("purchasable")) or \
+                    bool((n.get("pickup") or {}).get("purchasable"))
+            if purch:
+                best_status = Stock.IN
+                if best_price is None or (price and price < best_price):
+                    best_price = price
+                    t.url = f"https://www.bestbuy.ca/en-ca/product/{sku}"
+            hits.append(f"{sku}{'+' if purch else '-'}")
+        if best_status is Stock.OUT:
+            best_price = min((p for _s, _n, p in skus if p), default=None)
+        return _r(t, best_status, best_price, "CAD",
+                  f"{len(skus)} sku(s): {','.join(hits[:4])}", t0)
+    except Exception as e:
+        return _r(t, Stock.ERROR, note=f"{type(e).__name__}: {str(e)[:70]}", t0=t0)

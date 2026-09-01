@@ -168,7 +168,7 @@ targets:
   - retailer: Woot
     country: US
     adapter: tls
-    url: https://www.woot.com/search?q=playstation%205%20pro
+    url: https://electronics.woot.com/category/electronics/video-games
   - retailer: Kohl's
     country: US
     adapter: tls
@@ -213,7 +213,7 @@ targets:
     url: https://www.simply.ca/search?q=playstation+5+pro
   - retailer: Best Buy CA (marketplace)
     country: CA
-    adapter: tls
+    adapter: bestbuy_ca_search
     url: https://www.bestbuy.ca/en-ca/search?search=playstation+5+pro+console
   - retailer: Amazon.ca (warehouse)
     country: CA
